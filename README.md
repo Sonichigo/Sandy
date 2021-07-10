@@ -1,2 +1,2 @@
 # Sandy
-A BattleSnake
+A BattleSnake made in Javascript!!
