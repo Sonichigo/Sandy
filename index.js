@@ -1,6 +1,6 @@
 const bodyParser = require('body-parser')
 const express = require('express')
-
+const Board = require('./Board');
 const PORT = process.env.PORT || 3000
 
 const app = express()
@@ -18,9 +18,9 @@ function handleIndex(request, response) {
   var battlesnakeInfo = {
     apiversion: '1',
     author: 'Sonichigo',
-    color: '#9500ff',
-    head: 'evil',
-    tail: 'skinny'
+    color: '#3E338F',
+    head: 'fang',
+    tail: 'curled'
   }
   response.status(200).json(battlesnakeInfo)
 }
@@ -32,62 +32,93 @@ function handleStart(request, response) {
   response.status(200).send('ok')
 }
 
+// Functions for battlesnake strategy
+// Checks if move would hit the wall
+function hitsWall(newHeadPos, boardWidth, boardHeight) {
+  if (newHeadPos.y >= boardHeight || newHeadPos.y < 0 || newHeadPos.x >= boardWidth || newHeadPos.x < 0) {
+    console.log("Hits wall")
+    return true
+  }
+  return false
+}
+
+// Checks if move would hit self
+function hitsSnake(newHeadPos, bodyCoords) {
+  for (var i = 0; i < bodyCoords.length; ++i) {
+    var bodyCoord = bodyCoords[i]
+    if (newHeadPos.x === bodyCoord.x && newHeadPos.y === bodyCoord.y) {
+      console.log("Hits snake")
+      return true
+    }
+  }
+  return false
+}
+
+// Checks if move would hit other snakes
+function hitsOtherSnakes(newHeadPos, snakes) {
+  for (var i = 0; i < snakes.length; ++i) {
+    var snake = snakes[i]
+    if (hitsSnake(newHeadPos, snake.body)) {
+      return true
+    }
+  }
+  return false
+}
+
+// Returns object with new head position after move
+function getNewPos(headCoord, move) {
+  var newPos = {...headCoord}
+  switch (move) {
+    case 'up':
+      newPos.y = headCoord.y + 1
+      break
+    case 'down':
+      newPos.y = headCoord.y - 1
+      break
+    case 'left':
+      newPos.x = headCoord.x - 1
+      break
+    case 'right':
+      newPos.x = headCoord.x + 2
+      break
+  }
+  return newPos
+}
+function cityBlocksBetween(p1, p2) { 
+  return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y); 
+  }
+function findFood(p) {
+  for (var i = 0; i < p.length; ++i)
+  var food = p[i]
+  if (food.length > 1) {  // we need to sort
+    for (let f of food)
+      f.distance = cityBlocksBetween(p, f);
+
+    food.sort(function(a , b) { return a.distance - b.distance } );
+   }
+
+  return food;
+}
+
 function handleMove(request, response) {
   var gameData = request.body
 
-  var possibleMoves = []
-  var head = gameData.you.head
-  var neck = gameData.you.body[1]
-  var tail = gameData.you.tail
+  var yourSnake = gameData.you
+  var board = gameData.board
 
-  // Avoid our neck
-  console.log(head, neck)
-  if ( head.x == neck.x && head.y > neck.y) {
-    possibleMoves = ['up','left','right' ]
-  }
-  if (head.x == neck.x && head.y < neck.y) {
-    possibleMoves = ['down','left','right']
-  }
-  if ( head.x > neck.x && head.y == neck.y) {
-    possibleMoves = ['up','down','right' ]
-  }
-  if (head.x < neck.x && head.y == neck.y) {
-    possibleMoves = ['up','down','left' ]
-  }
-  //Avoid Body
-  /*if ( head.y == tail.x && head.y > tail.x) {
-    possibleMoves = ['up','left','right' ]
-  }
-  if (head.y == tail.x && head.x < tail.y) {
-    possibleMoves = ['down','left','right']
-  }
-  if ( head.x > tail.x && head.x == tail.x) {
-    possibleMoves = ['up','down','right' ]
-  }
-  if (head.x < tail.x && head.x == tail.y) {
-    possibleMoves = ['up','down','left' ]
-  }*/
-  //Avoid walls
-  var maxX = gameData.board.width - 1
-  var maxY = gameData.board.height - 1
-
-  if (head.x == 0){
-    possibleMoves = possibleMoves.filter((move) => move != 'left')
-  }
-  if (head.y == 0){
-    possibleMoves = possibleMoves.filter((move) => move != 'down')
-  }
-  if (head.x == maxX){
-    possibleMoves = possibleMoves.filter((move) => move != 'right')
-  }
-  if (head.y == maxY){
-    possibleMoves = possibleMoves.filter((move) => move != 'up')
-  }
-
-  var move = 'up'
-  if ( gameData. turn > 0) {
-    console.log(possibleMoves)
-    move = possibleMoves[Math.floor(Math.random()*possibleMoves.length) ]
+  var possibleMoves = ['up', 'down', 'left', 'right']
+  var i = 0
+  while (i < 10) {
+    var move = possibleMoves[i]
+    var newHeadPos = getNewPos(yourSnake.head, move)
+    headHitsWall = hitsWall(newHeadPos, board.width, board.height)
+    var headHitsSelf = hitsSnake(newHeadPos, yourSnake.body)
+    var headHitsSnake = hitsOtherSnakes(newHeadPos, board.snakes)
+    var food = findFood(yourSnake.body)
+    if (!headHitsWall && !headHitsSelf && !headHitsSnake && !food) {
+      break
+    }
+    ++i
   }
 
   console.log('MOVE: ' + move)
